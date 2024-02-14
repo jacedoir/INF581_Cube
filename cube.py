@@ -1,9 +1,6 @@
-from itertools import combinations
 import numpy as np
-import tensorflow as tf
 import matplotlib.pyplot as plt
 import matplotlib
-from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection,Line3DCollection
 
 
@@ -93,12 +90,24 @@ class Cube:
             direction: int, 1 for clockwise, -1 for counterclockwise
         """
         new_state = np.copy(self.state)
-        if direction == 1:
-            new_state[face] = [list(x) for x in zip(*reversed(self.state[face]))][::-1]
-        else:
-            new_state[face] = [list(x) for x in zip(*self.state[face])][::-1]
-        self.state = new_state.copy()
-
+        try:
+            assert face < self.size
+            if direction == 1: # clockwise
+                if face == 0: #Rotate the front
+                    new_state[2] = [list(x) for x in zip(*reversed(self.state[2]))][::-1]
+                new_state[0][face], new_state[1][face], new_state[3][face], new_state[5][face]=new_state[1][face][::-1],new_state[5][face][::-1],new_state[0][face][::-1],new_state[3][face][::-1]
+                if face == 5:
+                    new_state[4] = [list(x) for x in zip(*reversed(self.state[4]))][::-1] 
+            else: # counterclockwise
+                if face == 0: #Rotate the front
+                    new_state[2] = [list(x) for x in zip(*self.state[2])][::-1]
+                new_state[0][face], new_state[1][face], new_state[3][face], new_state[5][face]=new_state[3][face][::-1],new_state[0][face][::-1],new_state[5][face][::-1],new_state[1][face][::-1]
+                if face == 5:
+                    new_state[4] = [list(x) for x in zip(*self.state[4])][::-1]
+                
+            self.state = new_state.copy()
+        except:
+            print("Invalid face number")
 
     def show_cube_2D(self):
         """Show the current state of the cube, with color, for visualization."""
@@ -156,9 +165,13 @@ class Cube:
         ax.set_aspect('equal', adjustable='box')       
         plt.show()
         
-cube_variable = Cube(3)
-cube_variable.show_cube_2D()
-cube_variable.vertical_twist(1,1)
-cube_variable.show_cube_2D()
-cube_variable.horizontal_twist(0,1)
-cube_variable.show_cube_2D()
+
+if __name__ == "__main__":
+    cube_variable = Cube(3)
+    cube_variable.show_cube_2D()
+    cube_variable.horizontal_twist(0,1)
+    cube_variable.show_cube_2D()
+    cube_variable.vertical_twist(0,1)
+    cube_variable.show_cube_2D()
+    cube_variable.rotate_face(0,1)
+    cube_variable.show_cube_2D()
