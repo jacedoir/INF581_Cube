@@ -157,6 +157,8 @@ class Cube:
         plt.show()
         
 cube_variable = Cube(3)
-cube_variable.show_cube_3D()
-cube_variable.horizontal_twist(1,1)
-cube_variable.show_cube_3D()
+cube_variable.show_cube_2D()
+cube_variable.vertical_twist(1,1)
+cube_variable.show_cube_2D()
+cube_variable.horizontal_twist(0,1)
+cube_variable.show_cube_2D()
