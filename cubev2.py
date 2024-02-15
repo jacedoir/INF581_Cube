@@ -124,9 +124,21 @@ class Cube:
                 new_state[4] = np.rot90(self.state[4],3)
         self.state = new_state
 
+    def shuffle(self, n):
+        for i in range(n):
+            face = np.random.randint(self.size)
+            direction = np.random.choice([-1,1])
+            operation = np.random.randint(3)
+            if operation == 0:
+                self.horizontale_rotation(face, direction)
+            elif operation == 1:
+                self.verticale_rotation(face, direction)
+            else:
+                self.face_rotation(face, direction)
+
 
 
 cube = Cube(3, False)
 cube.print_2D()
-cube.face_rotation(2,1)
+cube.shuffle(25)
 cube.print_2D()
