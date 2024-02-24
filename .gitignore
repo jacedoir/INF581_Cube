@@ -29,3 +29,4 @@ Temporary Items
 
 venv
 .idea
+__pycache__
