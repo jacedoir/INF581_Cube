@@ -27,24 +27,32 @@ class CubeEnv(gym.Env):
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
 
-        self._position_dict = {
-            0: "left",
-            1: "top",
-            2: "front",
-            3: "bottom",
-            4: "back",
-            5: "right",
+        self._position_dict = {0: "left", 1:"top", 2:"front", 3:"bottom", 4:"back", 5:"right"}
+        self._face_position_dict = { # when rendering the cube
+            0: (0, 1), #  T
+            1: (1, 0), # LFR
+            2: (1, 1), #  Bo
+            3: (1, 2), #  Ba
+            4: (1, 3),
+            5: (2, 1)
         }
         self._color_dict = {
-            "r": "red",
-            "g": "green",
-            "b": "blue",
-            "o": "orange",
-            "y": "yellow",
-            "w": "black",
-            "": "none",
+            "r": (255, 0, 0),
+            "g": (0, 255, 0),
+            "b": (0, 0, 255),
+            "o": (255, 120, 0),
+            "y": (255, 255, 0),
+            "w": (220, 220, 220)
         }
-        self._action_map = {  # !!!!!! WARNING !!!!!! CHANGE WITH SIZE
+        self.color_encoding = {
+            "r": np.array([1, 0, 0, 0, 0, 0]),
+            "g": np.array([0, 1, 0, 0, 0, 0]),
+            "b": np.array([0, 0, 1, 0, 0, 0]),
+            "o": np.array([0, 0, 0, 1, 0, 0]),
+            "y": np.array([0, 0, 0, 0, 1, 0]),
+            "b": np.array([0, 0, 0, 0, 0, 1]),
+        }
+        self._action_map = { # !!!!!! WARNING !!!!!! CHANGE WITH SIZE
             0: lambda: self._horizontale_rotation(0, 1),
             1: lambda: self._horizontale_rotation(0, -1),
             2: lambda: self._verticale_rotation(0, 1),
@@ -53,7 +61,9 @@ class CubeEnv(gym.Env):
             5: lambda: self._face_rotation(0, -1),
         }
 
-        self.window_size = 512  # The size of the PyGame window
+        self._window_dims = (384, 512) # The size of the PyGame window
+        self._face_size = self._window_dims[0] // 4 # size of face in pixels
+        self._square_dims = self._tuple_mul((1, 1), self._face_size / self.size) # size of one square in pixels
         self.window = None
         self.clock = None
 
@@ -112,6 +122,29 @@ class CubeEnv(gym.Env):
         """Renders one frame"""
         if self.render_mode == "rgb_array":
             return self._render_frame()
+        
+    def _tuple_mul(self, tuple, coef):
+        return (tuple[0] * coef, tuple[1] * coef)
+        
+    def _tuple_add(self, tuple1, tuple2):
+        return (tuple1[0] + tuple2[0], tuple1[1] + tuple2[1])
+        
+    def _tuple_had(self, tuple1, tuple2):
+        return (tuple1[0] * tuple2[0], tuple1[1] * tuple2[1])
+    
+    def _render_face(self, canvas, face, face_position):
+        for i in range(self.size):
+            for j in range(self.size):
+                color = self._color_dict[face[i, j]]
+                pos = self._tuple_mul(face_position, self._face_size)
+                pos = self._tuple_add(pos, self._tuple_had(self._square_dims, (i, j)))
+                pygame.draw.rect(canvas,
+                                 color,
+                                 pygame.Rect(
+                                     pos,
+                                     self._square_dims
+                                    )
+                                )
 
     def _render_frame(self):
 
@@ -119,43 +152,25 @@ class CubeEnv(gym.Env):
         if self.window is None and self.render_mode == "human":
             pygame.init()
             pygame.display.init()
-            self.window = pygame.display.set_mode((self.window_size, self.window_size))
+            self.window = pygame.display.set_mode(self._window_dims)
+
+            # TODO
+            #run = True
+            #while run:
+            #    for event in pygame.event.get():
+            #        if event.type == pygame.QUIT:
+            #            run = False
+            #    
+
         if self.clock is None and self.render_mode == "human":
             self.clock = pygame.time.Clock()
 
-        canvas = pygame.Surface((self.window_size, self.window_size))
+        canvas = pygame.Surface(self._window_dims)
         canvas.fill((255, 255, 255))
 
-        pix_square_size = (
-            self.window_size / self.size
-        )  # The size of a single grid square in pixels
-
-        # First we draw the target
-        pygame.draw.rect(
-            canvas,
-            (255, 0, 0),
-            pygame.Rect(
-                pix_square_size * self._target_location,
-                (pix_square_size, pix_square_size),
-            ),
-        )
-
-        # Finally, add some gridlines
-        for x in range(self.size + 1):
-            pygame.draw.line(
-                canvas,
-                0,
-                (0, pix_square_size * x),
-                (self.window_size, pix_square_size * x),
-                width=3,
-            )
-            pygame.draw.line(
-                canvas,
-                0,
-                (pix_square_size * x, 0),
-                (pix_square_size * x, self.window_size),
-                width=3,
-            )
+        # draw face by face
+        for face in self._face_position_dict.keys():
+            self._render_face(canvas, self.state[face], self._face_position_dict[face])
 
         if self.render_mode == "human":
             # The following line copies our drawings from `canvas` to the visible window
@@ -166,10 +181,13 @@ class CubeEnv(gym.Env):
             # We need to ensure that human-rendering occurs at the predefined framerate.
             # The following line will automatically add a delay to keep the framerate stable.
             self.clock.tick(self.metadata["render_fps"])
-        else:  # rgb_array
-            return np.transpose(
+        else:
+
+            # show using plt
+            pixels = np.transpose(
                 np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
             )
+            plt.imshow(pixels)
 
     def _is_solved(self, state):
         for i in range(6):
@@ -264,8 +282,8 @@ class CubeEnv(gym.Env):
             direction = np.random.choice([-1, 1])
             operation = np.random.randint(3)
             if operation == 0:
-                self.horizontale_rotation(face, direction)
+                self._horizontale_rotation(face, direction)
             elif operation == 1:
-                self.verticale_rotation(face, direction)
+                self._verticale_rotation(face, direction)
             else:
-                self.face_rotation(face, direction)
+                self._face_rotation(face, direction)
