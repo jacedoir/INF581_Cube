@@ -79,7 +79,7 @@ class CubeEnv(gym.Env):
             pygame.display.quit()
             pygame.quit()
 
-    def reset(self, n_move, seed=None, options=None):
+    def reset(self, n_move=0, seed=None, options=None):
         """Puts Rubik's cube back to fully solved"""
         self.state[0] = np.array([["o"] * self.size] * self.size)
         self.state[1] = np.array([["w"] * self.size] * self.size)
@@ -114,8 +114,44 @@ class CubeEnv(gym.Env):
 
         return observation, reward, terminated, False, info
 
+    def step(self, action):
+
+        # rotate cube according to action map
+        self._action_map[action]()
+
+        # get info and everything
+        terminated = self._is_solved(self.state)
+        reward = self.reward(self.state)
+        observation = self._get_obs()
+        info = self._get_info()
+
+        # render if necessary
+        if self.render_mode == "human":
+            self._render_frame()
+
+        return observation, reward, terminated, False, info
+    
+    def simulate_step(self, action):
+        """Simulate a step without changing the state of the environment."""
+        copy_state=self.state.copy()
+        # rotate cube according to action map
+        self._action_map[action]()
+
+        # get info and everything
+        terminated = self._is_solved(self.state)
+        reward = self.reward(self.state)
+        observation = self._get_obs()
+        info = self._get_info()
+
+        # render if necessary
+        if self.render_mode == "human":
+            self._render_frame()
+
+        self.state=copy_state
+        return observation, reward, terminated, False, info
+    
     def reward(self, state):
-        # TODO
+        #TODO: Change for Q learning but keep it like that for ADI
         return int(self._is_solved(state))
 
     def render(self):
@@ -295,3 +331,6 @@ class CubeEnv(gym.Env):
                 self._verticale_rotation(face, direction)
             else:
                 self._face_rotation(face, direction)
+            observations.append(self._get_obs())
+            infos.append(self._get_info())
+        return observations, infos 
