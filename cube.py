@@ -42,7 +42,7 @@ class CubeEnv(gym.Env):
             "b": (0, 0, 255),
             "o": (255, 120, 0),
             "y": (255, 255, 0),
-            "w": (220, 220, 220)
+            "b": (220, 220, 220)
         }
         self.color_encoding = {
             "r": np.array([1, 0, 0, 0, 0, 0]),
@@ -68,8 +68,9 @@ class CubeEnv(gym.Env):
         self.clock = None
 
     def _get_obs(self):
-        state=np.array([[[self.color_encoding[self.state[i][j][k]] for k in range(self.size)] for j in range(self.size)] for i in range(6)])
-        return state
+        print('AA')
+        res=np.array([[[self.color_encoding[self.state[i][j][k]] for k in range(self.size)] for j in range(self.size)] for i in range(6)])
+        return res
 
     def _get_info(self):
         """Fully known environment"""
