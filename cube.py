@@ -68,7 +68,8 @@ class CubeEnv(gym.Env):
         self.clock = None
 
     def _get_obs(self):
-        return self.state
+        state=np.array([[[self.color_encoding[self.state[i][j][k]] for k in range(self.size)] for j in range(self.size)] for i in range(6)])
+        return state
 
     def _get_info(self):
         """Fully known environment"""
