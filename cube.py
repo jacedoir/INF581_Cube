@@ -2,6 +2,7 @@ from typing import Callable, List
 import gymnasium as gym
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 import numpy as np
 import pygame
 from gymnasium import spaces
@@ -202,7 +203,39 @@ class CubeEnv(gym.Env):
                     canvas, (0, 0, 0), pygame.Rect(pos, self._square_dims), width=1
                 )
 
-    def _render_frame(self):
+    def animate_frames(self, states):
+        """Short animation of the cube solving process."""
+
+        # First set up the figure, the axis, and the plot element we want to animate
+        fig = plt.figure( figsize=(8,8) )
+        frames=[]
+        for state in states:
+            frames.append(self._render_frame(state,display=False))
+        a = frames[0]
+        im = plt.imshow(a, interpolation='none', aspect='auto', vmin=0, vmax=1)
+
+        def animate_func(i):
+            if i % 1 == 0:
+                print( '.', end ='' )
+
+            im.set_array(frames[i])
+            return [im]
+
+        anim = animation.FuncAnimation(
+                                    fig, 
+                                    animate_func, 
+                                    frames = len(states),
+                                    interval = 1000, # in ms
+                                    )
+
+        anim.save('anim.gif', fps=1)
+
+
+        
+
+    def _render_frame(self,state=None,display=True):
+        if state is None :
+            state=self.state
 
         # init window
         if self.window is None and self.render_mode == "human":
@@ -226,7 +259,7 @@ class CubeEnv(gym.Env):
 
         # draw face by face
         for face in self._face_position_dict.keys():
-            self._render_face(canvas, self.state[face], self._face_position_dict[face])
+            self._render_face(canvas, state[face], self._face_position_dict[face])
 
         if self.render_mode == "human":
             # The following line copies our drawings from `canvas` to the visible window
@@ -244,6 +277,7 @@ class CubeEnv(gym.Env):
                 np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
             )
             plt.imshow(pixels)
+        return pixels
 
     def _is_solved(self, state):
         for i in range(6):
@@ -308,18 +342,19 @@ class CubeEnv(gym.Env):
                 0, :, self.size - 1 - face
             ]
             new_state[5, :, face] = self.state[1, self.size - 1 - face, :]
-            new_state[3, face, :] = self.state[5, :, self.size - 1 - face]
+            new_state[3, face, :] = self.state[5, :, face]
             new_state[0, :, self.size - 1 - face] = self.state[3, face, :]
             if face == 0:
                 new_state[2] = np.rot90(self.state[2], 3)
             elif face == self.size - 1:
                 new_state[4] = np.rot90(self.state[4])
+                
         elif direction == -1:  # counterclockwise
             new_state[0, :, self.size - 1 - face] = self.state[
                 1, self.size - 1 - face, :
             ]
             new_state[1, self.size - 1 - face, :] = self.state[
-                5, :, self.size - 1 - face
+                5, :, face
             ]
             new_state[5, :, face] = self.state[3, face, :]
             new_state[3, face, :] = self.state[0, :, self.size - 1 - face]
