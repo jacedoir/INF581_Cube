@@ -1,5 +1,8 @@
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
 
 class Cube:
     def __init__(self, size, live_display=False):
@@ -51,7 +54,7 @@ class Cube:
             plt.ylim(-4*self.size, 1)
             plt.axis('off')
             plt.show()
-    
+
     def horizontale_rotation(self, row, direction):
         new_state = np.copy(self.state)
         if row > self.size-1:
@@ -138,7 +141,7 @@ class Cube:
 
 
 
-cube = Cube(3, False)
+cube = Cube(2, False)
 cube.print_2D()
-cube.shuffle(25)
+cube.face_rotation(1, 1)
 cube.print_2D()
