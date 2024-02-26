@@ -62,7 +62,7 @@ class CubeEnv(gym.Env):
         }
 
         self._window_dims = (384, 512) # The size of the PyGame window
-        self._face_size = self._window_dims[0] // 4 # size of face in pixels
+        self._face_size = self._window_dims[1] // 4 # size of face in pixels
         self._square_dims = self._tuple_mul((1, 1), self._face_size / self.size) # size of one square in pixels
         self.window = None
         self.clock = None
@@ -137,13 +137,21 @@ class CubeEnv(gym.Env):
             for j in range(self.size):
                 color = self._color_dict[face[i, j]]
                 pos = self._tuple_mul(face_position, self._face_size)
-                pos = self._tuple_add(pos, self._tuple_had(self._square_dims, (i, j)))
+                pos = self._tuple_add(pos, self._tuple_had(self._square_dims, (j, i)))
                 pygame.draw.rect(canvas,
                                  color,
                                  pygame.Rect(
                                      pos,
                                      self._square_dims
                                     )
+                                )
+                pygame.draw.rect(canvas,
+                                 (0, 0, 0),
+                                 pygame.Rect(
+                                     pos,
+                                     self._square_dims
+                                    ),
+                                width=1
                                 )
 
     def _render_frame(self):
