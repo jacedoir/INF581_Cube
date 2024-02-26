@@ -30,3 +30,4 @@ Temporary Items
 venv
 .idea
 __pycache__
+.pytest_cache
