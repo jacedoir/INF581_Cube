@@ -6,6 +6,7 @@ import numpy as np
 import pygame
 from gymnasium import spaces
 from tqdm.notebook import tqdm
+import torch
 
 # - https://gymnasium.farama.org/api/env/
 # - https://gymnasium.farama.org/tutorials/gymnasium_basics/environment_creation/#sphx-glr-tutorials-gymnasium-basics-environment-creation-py
@@ -14,12 +15,12 @@ from tqdm.notebook import tqdm
 class CubeEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None):
+    def __init__(self, device: torch.device, render_mode=None):
         self.size = 2  # size of rubik's cube
         self.state = np.chararray(
             (6, self.size, self.size), unicode=True
         )  # initialize cube config
-
+        self.device = device
         # a chaque fois qu'on rajoute une dim, on rajoute 6 coups possible (2 par nouveau plan, x3 car nb d'axes de l'espace)
         self.action_space = spaces.Discrete(2 * 3 * (self.size - 1))
 
@@ -27,14 +28,21 @@ class CubeEnv(gym.Env):
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
 
-        self._position_dict = {0: "left", 1:"top", 2:"front", 3:"bottom", 4:"back", 5:"right"}
-        self._face_position_dict = { # when rendering the cube
-            0: (0, 1), #  T
-            1: (1, 0), # LFR
-            2: (1, 1), #  Bo
-            3: (1, 2), #  Ba
+        self._position_dict = {
+            0: "left",
+            1: "top",
+            2: "front",
+            3: "bottom",
+            4: "back",
+            5: "right",
+        }
+        self._face_position_dict = {  # when rendering the cube
+            0: (0, 1),  #  T
+            1: (1, 0),  # LFR
+            2: (1, 1),  #  Bo
+            3: (1, 2),  #  Ba
             4: (1, 3),
-            5: (2, 1)
+            5: (2, 1),
         }
         self._color_dict = {
             "r": (255, 0, 0),
@@ -42,17 +50,19 @@ class CubeEnv(gym.Env):
             "b": (0, 0, 255),
             "o": (255, 120, 0),
             "y": (255, 255, 0),
-            "b": (220, 220, 220)
+            "w": (220, 220, 220),
         }
+        self.colors= ["r", "g", "b", "o", "y", "w"]
+
         self.color_encoding = {
             "r": np.array([1, 0, 0, 0, 0, 0]),
             "g": np.array([0, 1, 0, 0, 0, 0]),
             "b": np.array([0, 0, 1, 0, 0, 0]),
             "o": np.array([0, 0, 0, 1, 0, 0]),
             "y": np.array([0, 0, 0, 0, 1, 0]),
-            "b": np.array([0, 0, 0, 0, 0, 1]),
+            "w": np.array([0, 0, 0, 0, 0, 1]),
         }
-        self._action_map = { # !!!!!! WARNING !!!!!! CHANGE WITH SIZE
+        self._action_map = {  # !!!!!! WARNING !!!!!! CHANGE WITH SIZE
             0: lambda: self._horizontale_rotation(0, 1),
             1: lambda: self._horizontale_rotation(0, -1),
             2: lambda: self._verticale_rotation(0, 1),
@@ -61,15 +71,25 @@ class CubeEnv(gym.Env):
             5: lambda: self._face_rotation(0, -1),
         }
 
-        self._window_dims = (384, 512) # The size of the PyGame window
-        self._face_size = self._window_dims[1] // 4 # size of face in pixels
-        self._square_dims = self._tuple_mul((1, 1), self._face_size / self.size) # size of one square in pixels
+        self._window_dims = (384, 512)  # The size of the PyGame window
+        self._face_size = self._window_dims[1] // 4  # size of face in pixels
+        self._square_dims = self._tuple_mul(
+            (1, 1), self._face_size / self.size
+        )  # size of one square in pixels
         self.window = None
         self.clock = None
 
     def _get_obs(self):
-        print('AA')
-        res=np.array([[[self.color_encoding[self.state[i][j][k]] for k in range(self.size)] for j in range(self.size)] for i in range(6)])
+        res = np.array(
+            [
+                [
+                    [self.color_encoding[self.state[i][j][k]] for k in range(self.size)]
+                    for j in range(self.size)
+                ]
+                for i in range(6)
+            ]
+        )
+        res = torch.tensor(res, dtype=torch.float32, device=self.device).flatten()
         return res
 
     def _get_info(self):
@@ -81,7 +101,7 @@ class CubeEnv(gym.Env):
             pygame.display.quit()
             pygame.quit()
 
-    def reset(self, n_move=0, seed=None, options=None):
+    def reset(self, n_moves=0, seed=None, options=None):
         """Puts Rubik's cube back to fully solved"""
         self.state[0] = np.array([["o"] * self.size] * self.size)
         self.state[1] = np.array([["w"] * self.size] * self.size)
@@ -89,8 +109,8 @@ class CubeEnv(gym.Env):
         self.state[3] = np.array([["y"] * self.size] * self.size)
         self.state[4] = np.array([["r"] * self.size] * self.size)
         self.state[5] = np.array([["b"] * self.size] * self.size)
-
-        self.shuffle(n_move)
+        if n_moves > 0:
+            self.shuffle(n_moves)
         observation = self._get_obs()
         info = self._get_info()
 
@@ -132,10 +152,11 @@ class CubeEnv(gym.Env):
             self._render_frame()
 
         return observation, reward, terminated, False, info
-    
-    def simulate_step(self, action):
+
+    def simulate_step(self, state, action):
         """Simulate a step without changing the state of the environment."""
-        copy_state=self.state.copy()
+        copy_state = self.state.copy()
+        self.state = state
         # rotate cube according to action map
         self._action_map[action]()
 
@@ -149,48 +170,37 @@ class CubeEnv(gym.Env):
         if self.render_mode == "human":
             self._render_frame()
 
-        self.state=copy_state
+        self.state = copy_state
         return observation, reward, terminated, False, info
-    
+
     def reward(self, state):
-        #TODO: Change for Q learning but keep it like that for ADI
+        # TODO: Change for Q learning but keep it like that for ADI
         return int(self._is_solved(state))
 
     def render(self):
         """Renders one frame"""
         if self.render_mode == "rgb_array":
             return self._render_frame()
-        
+
     def _tuple_mul(self, tuple, coef):
         return (tuple[0] * coef, tuple[1] * coef)
-        
+
     def _tuple_add(self, tuple1, tuple2):
         return (tuple1[0] + tuple2[0], tuple1[1] + tuple2[1])
-        
+
     def _tuple_had(self, tuple1, tuple2):
         return (tuple1[0] * tuple2[0], tuple1[1] * tuple2[1])
-    
+
     def _render_face(self, canvas, face, face_position):
         for i in range(self.size):
             for j in range(self.size):
                 color = self._color_dict[face[i, j]]
                 pos = self._tuple_mul(face_position, self._face_size)
                 pos = self._tuple_add(pos, self._tuple_had(self._square_dims, (j, i)))
-                pygame.draw.rect(canvas,
-                                 color,
-                                 pygame.Rect(
-                                     pos,
-                                     self._square_dims
-                                    )
-                                )
-                pygame.draw.rect(canvas,
-                                 (0, 0, 0),
-                                 pygame.Rect(
-                                     pos,
-                                     self._square_dims
-                                    ),
-                                width=1
-                                )
+                pygame.draw.rect(canvas, color, pygame.Rect(pos, self._square_dims))
+                pygame.draw.rect(
+                    canvas, (0, 0, 0), pygame.Rect(pos, self._square_dims), width=1
+                )
 
     def _render_frame(self):
 
@@ -201,12 +211,12 @@ class CubeEnv(gym.Env):
             self.window = pygame.display.set_mode(self._window_dims)
 
             # TODO
-            #run = True
-            #while run:
+            # run = True
+            # while run:
             #    for event in pygame.event.get():
             #        if event.type == pygame.QUIT:
             #            run = False
-            #    
+            #
 
         if self.clock is None and self.render_mode == "human":
             self.clock = pygame.time.Clock()
@@ -319,20 +329,32 @@ class CubeEnv(gym.Env):
                 new_state[4] = np.rot90(self.state[4], 3)
         self.state = new_state
 
-    def shuffle(self, n_moves):
+    
+    def from_tensor_to_state(self, tensor):
+        tensor= tensor.view(6, self.size, self.size,6)
+        state = np.chararray((6, self.size, self.size), unicode=True)
+        for i in range(6):
+            for j in range(self.size):
+                for k in range(self.size):
+                    state[i][j][k] = self.colors[torch.argmax(tensor[i][j][k])]
+        return state
+    
+    def shuffle(self, n_moves, batch_size=1):
         # TODO (not important) able to use seed
-        observations = []
-        infos = []
-        for i in range(n_moves):
-            face = np.random.randint(self.size)
-            direction = np.random.choice([-1, 1])
-            operation = np.random.randint(3)
-            if operation == 0:
-                self._horizontale_rotation(face, direction)
-            elif operation == 1:
-                self._verticale_rotation(face, direction)
-            else:
-                self._face_rotation(face, direction)
-            observations.append(self._get_obs())
-            infos.append(self._get_info())
-        return observations, infos 
+        batched_obs = torch.zeros(
+            (n_moves,batch_size,6 * 6 * self.size * self.size), device=self.device
+        )
+        for i in range(batch_size):
+            observations = []
+            for j in range(n_moves):
+                face = np.random.randint(self.size)
+                direction = np.random.choice([-1, 1])
+                operation = np.random.randint(3)
+                if operation == 0:
+                    self._horizontale_rotation(face, direction)
+                elif operation == 1:
+                    self._verticale_rotation(face, direction)
+                else:
+                    self._face_rotation(face, direction)
+                batched_obs[j][i]=self._get_obs()
+        return torch.tensor(batched_obs, device=self.device)
