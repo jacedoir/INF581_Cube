@@ -157,6 +157,8 @@ class CubeEnv(gym.Env):
     def simulate_step(self, state, action):
         """Simulate a step without changing the state of the environment."""
         copy_state = self.state.copy()
+        if torch.is_tensor(state):
+            state= self.from_tensor_to_state(state)
         self.state = state
         # rotate cube according to action map
         self._action_map[action]()
@@ -176,7 +178,7 @@ class CubeEnv(gym.Env):
 
     def reward(self, state):
         # TODO: Change for Q learning but keep it like that for ADI
-        return int(self._is_solved(state))
+        return -1+2*int(self._is_solved(state))
 
     def render(self):
         """Renders one frame"""
@@ -366,7 +368,7 @@ class CubeEnv(gym.Env):
 
     
     def from_tensor_to_state(self, tensor):
-        tensor= tensor.view(6, self.size, self.size,6)
+        tensor= tensor.view((6, self.size, self.size,6))
         state = np.chararray((6, self.size, self.size), unicode=True)
         for i in range(6):
             for j in range(self.size):
@@ -380,16 +382,10 @@ class CubeEnv(gym.Env):
             (n_moves,batch_size,6 * 6 * self.size * self.size), device=self.device
         )
         for i in range(batch_size):
+            self.reset()
             observations = []
             for j in range(n_moves):
-                face = np.random.randint(self.size)
-                direction = np.random.choice([-1, 1])
-                operation = np.random.randint(3)
-                if operation == 0:
-                    self._horizontale_rotation(face, direction)
-                elif operation == 1:
-                    self._verticale_rotation(face, direction)
-                else:
-                    self._face_rotation(face, direction)
-                batched_obs[j][i]=self._get_obs()
+                action = self.action_space.sample()
+                observation, _, _, _, _ = self.step(action)
+                batched_obs[j][i]=observation
         return torch.tensor(batched_obs, device=self.device)
