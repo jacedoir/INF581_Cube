@@ -12,7 +12,6 @@ import torch
 # - https://gymnasium.farama.org/api/env/
 # - https://gymnasium.farama.org/tutorials/gymnasium_basics/environment_creation/#sphx-glr-tutorials-gymnasium-basics-environment-creation-py
 
-
 class CubeEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
@@ -103,18 +102,22 @@ class CubeEnv(gym.Env):
             pygame.quit()
 
     def reset(self, n_moves=0, seed=None, options=None):
-        """Puts Rubik's cube back to fully solved"""
+        """Puts Rubik's cube back to fully solved if n_moves is set to 0, otherwise solve and perform an n-shuffle"""
         self.state[0] = np.array([["o"] * self.size] * self.size)
         self.state[1] = np.array([["w"] * self.size] * self.size)
         self.state[2] = np.array([["g"] * self.size] * self.size)
         self.state[3] = np.array([["y"] * self.size] * self.size)
         self.state[4] = np.array([["r"] * self.size] * self.size)
         self.state[5] = np.array([["b"] * self.size] * self.size)
+        
+        # Shuffle if asked
         if n_moves > 0:
             self.shuffle(n_moves)
+
         observation = self._get_obs()
         info = self._get_info()
 
+        # render if necessary
         if self.render_mode == "human":
             self._render_frame()
 
@@ -158,7 +161,7 @@ class CubeEnv(gym.Env):
         """Simulate a step without changing the state of the environment."""
         copy_state = self.state.copy()
         if torch.is_tensor(state):
-            state= self.from_tensor_to_state(state)
+            state = self.from_tensor_to_state(state)
         self.state = state
         # rotate cube according to action map
         self._action_map[action]()
@@ -177,8 +180,25 @@ class CubeEnv(gym.Env):
         return observation, reward, terminated, False, info
 
     def reward(self, state):
-        # TODO: Change for Q learning but keep it like that for ADI
-        return -1+2*int(self._is_solved(state))
+        """
+        Reward function containing minimal human knowledge
+
+        Rules:
+        - Fully solved: +1
+        - N faces solved: -1 + N / 3
+        - Otherwise: -1
+
+        NO HUMAN KNOWLEDGE REWARD: 'return -1 + 2 * return int(self._is_solved(state))'
+        """
+
+        if self._is_solved(state):
+            return 20
+        
+        reward = -1
+
+        reward += .7 * self._count_solved_faces(state)
+
+        return reward
 
     def render(self):
         """Renders one frame"""
@@ -275,11 +295,15 @@ class CubeEnv(gym.Env):
             pixels = np.transpose(np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2))
             plt.imshow(pixels)
 
-    def _is_solved(self, state):
+    def _count_solved_faces(self, state):
+        solved = 0
         for i in range(6):
-            if len(np.unique(state[i])) != 1:  # check for all face uniqueness
-                return False
-        return True
+            if len(np.unique(state[i])) == 1:
+                solved += 1
+        return solved
+
+    def _is_solved(self, state):
+        return self._count_solved_faces(state) == 6
 
     def _horizontale_rotation(self, row, direction):
         new_state = np.copy(self.state)
