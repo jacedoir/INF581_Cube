@@ -232,9 +232,6 @@ class CubeEnv(gym.Env):
 
         anim.save('anim.gif', fps=1)
 
-
-        
-
     def _render_frame(self,state=None,display=True):
         if state is None :
             state=self.state
@@ -275,11 +272,8 @@ class CubeEnv(gym.Env):
         else:
 
             # show using plt
-            pixels = np.transpose(
-                np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
-            )
+            pixels = np.transpose(np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2))
             plt.imshow(pixels)
-        return pixels
 
     def _is_solved(self, state):
         for i in range(6):
