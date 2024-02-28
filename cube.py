@@ -112,7 +112,9 @@ class CubeEnv(gym.Env):
         
         # Shuffle if asked
         if n_moves > 0:
-            self.shuffle(n_moves)
+            for _ in range(n_moves):
+                action = self.action_space.sample()
+                observation, _, _, _, _ = self.step(action)
 
         observation = self._get_obs()
         info = self._get_info()
@@ -180,25 +182,8 @@ class CubeEnv(gym.Env):
         return observation, reward, terminated, False, info
 
     def reward(self, state):
-        """
-        Reward function containing minimal human knowledge
-
-        Rules:
-        - Fully solved: +1
-        - N faces solved: -1 + N / 3
-        - Otherwise: -1
-
-        NO HUMAN KNOWLEDGE REWARD: 'return -1 + 2 * return int(self._is_solved(state))'
-        """
-
-        if self._is_solved(state):
-            return 20
-        
-        reward = -1
-
-        reward += .7 * self._count_solved_faces(state)
-
-        return reward
+        """Reward function, containing minimal human knowledge"""
+        return -1 + .3 * self._count_solved_faces(state)
 
     def render(self):
         """Renders one frame"""
@@ -394,7 +379,7 @@ class CubeEnv(gym.Env):
                     state[i][j][k] = self.colors[torch.argmax(tensor[i][j][k])]
         return state
     
-    def shuffle(self, n_moves, batch_size=1):
+    def batch_shuffle(self, n_moves, batch_size=1):
         # TODO (not important) able to use seed
         batched_obs = torch.zeros(
             (n_moves,batch_size,6 * 6 * self.size * self.size), device=self.device
