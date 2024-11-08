@@ -1,0 +1,7 @@
+0 -> def reward, trained for 5min
+1 -> reward -1 to 1 based on nb of solved faces
+2 -> +30 if solved, +2 for every solved faces
+3 -> trained on 1024 episodes, 8 max shuffle, 256 batch size
+0, 1, 2, 3 have same performance
+
+4 -> slightly better
